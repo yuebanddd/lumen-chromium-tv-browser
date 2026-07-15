@@ -1,0 +1,31 @@
+name: Validate Lumen TV downstream
+
+on:
+  push:
+    branches:
+      - master
+      - "agent/**"
+    paths:
+      - "build/**"
+      - "tools/lumen/**"
+      - ".github/workflows/lumen-validate.yml"
+      - "docs/LUMEN_TV_ARCHITECTURE.md"
+  pull_request:
+    paths:
+      - "build/**"
+      - "tools/lumen/**"
+      - ".github/workflows/lumen-validate.yml"
+      - "docs/LUMEN_TV_ARCHITECTURE.md"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate downstream configuration
+        run: bash tools/lumen/validate.sh
