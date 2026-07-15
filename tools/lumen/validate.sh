@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PATCH_NAME="Lumen-TV-shell-and-remote-navigation.patch"
 PATCH_FILE="$ROOT/build/patches/$PATCH_NAME"
+UPSTREAM_COMMIT_FILE="$ROOT/build/UPSTREAM_COMMIT"
 
 fail() {
   echo "Lumen validation failed: $*" >&2
@@ -11,6 +12,11 @@ fail() {
 }
 
 [[ -f "$PATCH_FILE" ]] || fail "missing $PATCH_FILE"
+[[ -f "$UPSTREAM_COMMIT_FILE" ]] || fail "missing $UPSTREAM_COMMIT_FILE"
+
+upstream_commit="$(tr -d '[:space:]' < "$UPSTREAM_COMMIT_FILE")"
+[[ "$upstream_commit" =~ ^[0-9a-f]{40}$ ]] \
+  || fail "build/UPSTREAM_COMMIT is not a full Git commit SHA"
 
 release="$(tr -d '[:space:]' < "$ROOT/build/RELEASE")"
 [[ "$release" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] \

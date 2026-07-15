@@ -17,6 +17,16 @@ Cromite remains the upstream maintenance layer. Lumen changes are appended after
 
 Keeping the TV work in a final patch makes an upstream Chromium upgrade explicit: update from Cromite, run patch validation, resolve only the Lumen patch if Chromium changed the touched Android files, and rebuild.
 
+## Branch and release model
+
+- `master` mirrors or synchronizes Cromite upstream changes.
+- `release` is the Lumen product integration and publishing branch.
+- `agent/*` and other development branches must open pull requests against `release`.
+- Pull requests run both lightweight configuration validation and the complete Chromium patch-application check.
+- GitHub Releases can only be created by manually running the publish workflow from `release`.
+
+The publish workflow does not compile Chromium. It promotes the `lumen-tv-browser-arm64` artifact from an already completed, isolated build run. This keeps signing and high-resource compilation separate from public PR validation.
+
 ## Current TV behavior
 
 - `LEANBACK_LAUNCHER` makes the browser visible in Android TV launchers.

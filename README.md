@@ -6,6 +6,8 @@ The downstream TV layer currently adds a Leanback launcher entry, landscape TV s
 
 This public fork is based on Cromite and remains licensed under GPLv3. The upstream Cromite documentation follows below.
 
+All product changes are submitted by pull request to the long-lived `release` branch. The upstream `master` branch is reserved for Cromite synchronization. Publishing is only allowed from `release` and promotes a previously built ARM64 APK artifact.
+
 ---
 
 <a href="https://github.com/uazo/cromite/releases/latest">

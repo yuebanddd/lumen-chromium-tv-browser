@@ -11,6 +11,8 @@ on:
       - ".github/workflows/lumen-validate.yml"
       - "docs/LUMEN_TV_ARCHITECTURE.md"
   pull_request:
+    branches:
+      - release
     paths:
       - "build/**"
       - "tools/lumen/**"
