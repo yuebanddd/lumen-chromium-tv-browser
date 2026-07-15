@@ -4,12 +4,15 @@ on:
   push:
     branches:
       - master
+      - release
       - "agent/**"
     paths:
       - "build/**"
       - "tools/lumen/**"
       - ".github/workflows/lumen-validate.yml"
+      - ".github/workflows/lumen-build-arm64.yml"
       - "docs/LUMEN_TV_ARCHITECTURE.md"
+      - "docs/ARM64_BUILD_RUNNER.md"
   pull_request:
     branches:
       - release
@@ -17,7 +20,9 @@ on:
       - "build/**"
       - "tools/lumen/**"
       - ".github/workflows/lumen-validate.yml"
+      - ".github/workflows/lumen-build-arm64.yml"
       - "docs/LUMEN_TV_ARCHITECTURE.md"
+      - "docs/ARM64_BUILD_RUNNER.md"
 
 permissions:
   contents: read

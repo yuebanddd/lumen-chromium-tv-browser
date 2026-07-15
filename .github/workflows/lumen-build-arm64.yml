@@ -1,0 +1,186 @@
+name: Build Lumen TV Browser ARM64
+
+on:
+  workflow_dispatch:
+    inputs:
+      cpus:
+        description: "Maximum CPU cores available to the isolated compiler"
+        required: true
+        type: number
+        default: 32
+      memory_gb:
+        description: "Maximum compiler memory in GiB"
+        required: true
+        type: number
+        default: 64
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+
+concurrency:
+  group: lumen-arm64-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/release'
+    runs-on: [self-hosted, linux, x64, lumen-build-ephemeral]
+    environment: lumen-build
+    timeout-minutes: 1440
+    env:
+      SOURCE_IMAGE: lumen-source:${{ github.sha }}
+      BUILDER_IMAGE: lumen-arm64-builder:${{ github.sha }}
+      BUILD_CONTAINER: lumen-arm64-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - name: Checkout trusted release commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Validate release source
+        run: bash tools/lumen/validate.sh
+
+      - name: Check isolated runner capacity
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker version
+          if ! [[ "${{ inputs.cpus }}" =~ ^[0-9]+$ ]] || [ "${{ inputs.cpus }}" -lt 8 ]; then
+            echo "cpus must be an integer of at least 8" >&2
+            exit 1
+          fi
+          if ! [[ "${{ inputs.memory_gb }}" =~ ^[0-9]+$ ]] || [ "${{ inputs.memory_gb }}" -lt 32 ]; then
+            echo "memory_gb must be an integer of at least 32" >&2
+            exit 1
+          fi
+          runner_cpus=$(nproc)
+          runner_memory_kb=$(awk '/^MemTotal:/ {print $2}' /proc/meminfo)
+          if [ "${{ inputs.cpus }}" -gt "$runner_cpus" ]; then
+            echo "Requested ${{ inputs.cpus }} CPUs but the runner exposes $runner_cpus" >&2
+            exit 1
+          fi
+          if [ "$(( ${{ inputs.memory_gb }} * 1024 * 1024 ))" -gt "$runner_memory_kb" ]; then
+            echo "Requested ${{ inputs.memory_gb }} GiB but the runner does not expose enough RAM" >&2
+            exit 1
+          fi
+          available_kb=$(df -Pk "$RUNNER_TEMP" | awk 'NR == 2 {print $4}')
+          if [ "$available_kb" -lt 209715200 ]; then
+            echo "The ephemeral runner needs at least 200 GiB free under RUNNER_TEMP" >&2
+            exit 1
+          fi
+
+      - name: Resolve pinned build inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(tr -d '[:space:]' < build/RELEASE)
+          upstream_commit=$(tr -d '[:space:]' < build/UPSTREAM_COMMIT)
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "UPSTREAM_COMMIT=$upstream_commit" >> "$GITHUB_ENV"
+          {
+            echo "### Lumen ARM64 build"
+            echo
+            echo "- Source: \`$GITHUB_REPOSITORY@$GITHUB_SHA\`"
+            echo "- Chromium: \`$version\`"
+            echo "- Upstream Cromite: \`$upstream_commit\`"
+            echo "- Compiler network: disabled"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build Lumen source image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull "uazo/chromium:$VERSION"
+          DOCKER_BUILDKIT=1 docker build \
+            --build-arg "VERSION=$VERSION" \
+            --build-arg "CROMITE_SHA=$GITHUB_SHA" \
+            --build-arg "CROMITE_REPOSITORY=https://github.com/$GITHUB_REPOSITORY.git" \
+            --tag "uazo/cromite:$VERSION-$GITHUB_SHA" \
+            --tag "$SOURCE_IMAGE" \
+            --file tools/images/cromite-source/Dockerfile \
+            tools/images/cromite-source
+
+      - name: Prepare ARM64 builder image
+        shell: bash
+        run: |
+          set -euo pipefail
+          DOCKER_BUILDKIT=1 docker build \
+            --build-arg "VERSION=$VERSION" \
+            --build-arg "CROMITE_SHA=$GITHUB_SHA" \
+            --tag "$BUILDER_IMAGE" \
+            --file tools/images/lumen-arm64-build/Dockerfile \
+            tools/images/lumen-arm64-build
+
+      - name: Compile and sign in an offline container
+        shell: bash
+        env:
+          LUMEN_KEYSTORE_BASE64: ${{ secrets.LUMEN_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.LUMEN_KEYSTORE_PASSWORD }}
+          KEYSTORE_ALIAS: ${{ secrets.LUMEN_KEY_ALIAS }}
+          CROMITE_PREF_HASH_SEED_BIN: ${{ secrets.LUMEN_PREF_HASH_SEED_BIN }}
+        run: |
+          set -euo pipefail
+          for name in LUMEN_KEYSTORE_BASE64 KEYSTORE_PASSWORD KEYSTORE_ALIAS CROMITE_PREF_HASH_SEED_BIN; do
+            if [ -z "${!name:-}" ]; then
+              echo "The lumen-build environment is missing $name" >&2
+              exit 1
+            fi
+          done
+          docker create \
+            --name "$BUILD_CONTAINER" \
+            --network none \
+            --cpus "${{ inputs.cpus }}" \
+            --memory "${{ inputs.memory_gb }}g" \
+            --pids-limit 8192 \
+            --security-opt no-new-privileges:true \
+            --env LUMEN_KEYSTORE_BASE64 \
+            --env KEYSTORE_PASSWORD \
+            --env KEYSTORE_ALIAS \
+            --env CROMITE_PREF_HASH_SEED_BIN \
+            --env WORKSPACE=/home/lg/working_dir \
+            "$BUILDER_IMAGE" \
+            bash -lc '/home/lg/working_dir/cromite/tools/lumen/build-arm64.sh'
+          docker start --attach "$BUILD_CONTAINER"
+
+      - name: Extract and verify APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          docker cp \
+            "$BUILD_CONTAINER:/home/lg/working_dir/chromium/src/out/lumen-arm64/apks/ChromePublic.apk" \
+            dist/LumenTVBrowser-arm64.apk
+          unzip -tq dist/LumenTVBrowser-arm64.apk >/dev/null
+          sha256sum dist/LumenTVBrowser-arm64.apk > dist/SHA256SUMS.txt
+          printf '%s\n' "$GITHUB_SHA" > dist/SOURCE_COMMIT
+          printf '%s\n' "$VERSION" > dist/CHROMIUM_VERSION
+
+      - name: Attest APK provenance
+        uses: actions/attest@v4
+        with:
+          subject-path: dist/LumenTVBrowser-arm64.apk
+
+      - name: Upload ARM64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lumen-tv-browser-arm64
+          path: dist/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+      - name: Remove build containers and secrets
+        if: always()
+        shell: bash
+        run: |
+          docker rm --force "$BUILD_CONTAINER" 2>/dev/null || true
+          docker image rm \
+            "$BUILDER_IMAGE" \
+            "$SOURCE_IMAGE" \
+            "uazo/cromite:$VERSION-$GITHUB_SHA" \
+            2>/dev/null || true
