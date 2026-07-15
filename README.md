@@ -1,3 +1,15 @@
+# Lumen TV Browser
+
+Lumen TV Browser is a TV-first, self-contained Chromium browser for Android TV and Google TV. The APK embeds its own Chromium engine and does not depend on the television's System WebView.
+
+The downstream TV layer currently adds a Leanback launcher entry, landscape TV shell, scalable 4K launcher artwork, D-pad focus routing, Blink spatial navigation and the package ID `com.deeplumen.lumentvbrowser`. See [the Lumen architecture](docs/LUMEN_TV_ARCHITECTURE.md) for build and compatibility details.
+
+This public fork is based on Cromite and remains licensed under GPLv3. The upstream Cromite documentation follows below.
+
+All product changes are submitted by pull request to the long-lived `release` branch. The upstream `master` branch is reserved for Cromite synchronization. Publishing is only allowed from `release` and promotes a previously built ARM64 APK artifact.
+
+---
+
 <a href="https://github.com/uazo/cromite/releases/latest">
   <img src="https://img.shields.io/github/v/release/uazo/cromite" alt="current Cromite release" title="current Cromite release" />
 </a>
