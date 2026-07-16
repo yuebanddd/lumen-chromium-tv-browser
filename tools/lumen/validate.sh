@@ -42,6 +42,16 @@ grep -Fq 'appendSwitch("enable-spatial-navigation")' "$PATCH_FILE" \
 grep -Fq 'KEYCODE_DPAD_UP' "$PATCH_FILE" \
   || fail "D-pad focus routing is missing"
 
+grep -Fq 'android_keystore_name = getenv("KEYSTORE_ALIAS")' \
+  "$ROOT/build/cromite.gn_args" || fail "release keystore alias must come from the build environment"
+
+if [[ -f "$ROOT/.github/workflows/lumen-build-arm64.yml" ]]; then
+  grep -Fq "github.ref == 'refs/heads/release'" \
+    "$ROOT/.github/workflows/lumen-build-arm64.yml" || fail "ARM64 builds must be restricted to release"
+  grep -Fq -- '--network none' \
+    "$ROOT/.github/workflows/lumen-build-arm64.yml" || fail "ARM64 compiler container must be offline"
+fi
+
 git apply --stat "$PATCH_FILE" >/dev/null \
   || fail "Lumen patch is not syntactically valid"
 

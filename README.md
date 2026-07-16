@@ -8,6 +8,8 @@ This public fork is based on Cromite and remains licensed under GPLv3. The upstr
 
 All product changes are submitted by pull request to the long-lived `release` branch. The upstream `master` branch is reserved for Cromite synchronization. Publishing is only allowed from `release` and promotes a previously built ARM64 APK artifact.
 
+Production ARM64 APKs are built on a dedicated disposable runner, signed through the protected `lumen-build` environment, and compiled in a network-disabled container. See [the isolated ARM64 build runner guide](docs/ARM64_BUILD_RUNNER.md).
+
 ---
 
 <a href="https://github.com/uazo/cromite/releases/latest">

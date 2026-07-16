@@ -49,7 +49,9 @@ This does not guarantee that every site will offer 4K video. Actual playback dep
 
 The intended target is Chromium's `chrome_public_apk` with `target_os="android"` and `target_cpu="arm64"`. The output is `out/arm64/apks/ChromePublic.apk`; release packaging should rename it to `LumenTVBrowser-arm64.apk`.
 
-A full Chromium build needs a dedicated Linux builder with Docker, substantial RAM and storage, and a private Android signing keystore. The inherited Cromite workflow is coupled to upstream self-hosted infrastructure and is not enabled for Lumen branch commits in this baseline. Fork-aware containers, runner isolation, cache ownership and signing secrets must be reviewed and approved as a separate build-infrastructure change. Never commit signing material to this repository.
+A full Chromium build needs a dedicated Linux builder with Docker, substantial RAM and storage, and a private Android signing keystore. The inherited Cromite workflow remains disabled for Lumen branch commits because it is coupled to upstream self-hosted infrastructure. Never commit signing material to this repository.
+
+The dedicated ARM64 workflow now implements that separation on a disposable runner. It builds only trusted `release` commits, prepares the source and toolchain images with network access, then compiles and signs inside a network-disabled container without host volume mounts. See [the isolated runner guide](ARM64_BUILD_RUNNER.md) for runner labels, capacity, protected environment secrets, and the build-to-publish sequence.
 
 ## Validation gates
 
